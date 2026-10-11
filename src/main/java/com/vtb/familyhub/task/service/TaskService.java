@@ -4,10 +4,12 @@ import com.vtb.familyhub.task.entity.Account;
 import com.vtb.familyhub.task.entity.Task;
 import com.vtb.familyhub.task.entity.TaskStatus;
 import com.vtb.familyhub.task.entity.Transaction;
+import com.vtb.familyhub.task.event.TaskSubmittedEvent;
 import com.vtb.familyhub.task.repository.AccountRepository;
 import com.vtb.familyhub.task.repository.TaskRepository;
 import com.vtb.familyhub.task.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Task createTask(String title, String description, BigDecimal reward, Long parentId, Long childId) {
         Task task = Task.builder()
@@ -46,57 +49,19 @@ public class TaskService {
     @Transactional
     public Task submitTask(Long taskId, Long childId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Задача с id " + taskId + " не найдена"));
+                .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
 
         if (!task.getChildId().equals(childId)) {
             throw new IllegalStateException("Это задание привязано к другому ребенку");
         }
 
         task.setStatus(TaskStatus.SUBMITTED);
-        return taskRepository.save(task);
-    }
+        Task saved = taskRepository.save(task);
 
-    @Transactional
-    public Task approveTask(Long taskId, Long parentId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Задача с id " + taskId + " не найдена"));
+        // Публикуем событие для пуш-уведомления родителя
+        eventPublisher.publishEvent(new TaskSubmittedEvent(saved));
 
-        if (!task.getParentId().equals(parentId)) {
-            throw new IllegalStateException("Только назначивший родитель может подтвердить выполнение");
-        }
-
-        if (task.getStatus() == TaskStatus.APPROVED) {
-            throw new IllegalStateException("Задание уже было оплачено ранее");
-        }
-
-        task.setStatus(TaskStatus.APPROVED);
-        task.setCompletedAt(LocalDateTime.now());
-
-        // Начисляем деньги на баланс ребенка
-        Account childAccount = accountRepository.findById(task.getChildId())
-                .orElse(new Account(task.getChildId(), BigDecimal.ZERO));
-        childAccount.setBalance(childAccount.getBalance().add(task.getReward()));
-        accountRepository.save(childAccount);
-
-        transactionRepository.save(Transaction.builder()
-                .fromUserId(task.getParentId())
-                .toUserId(task.getChildId())
-                .amount(task.getReward())
-                .description("Награда за квест: " + task.getTitle())
-                .paymentType("TASK_REWARD")
-                .build());
-
-        return taskRepository.save(task);
-    }
-
-    public BigDecimal getBalance(Long userId) {
-        return accountRepository.findById(userId)
-                .map(Account::getBalance)
-                .orElse(BigDecimal.ZERO);
-    }
-
-    public List<Transaction> getHistory(Long userId) {
-        return transactionRepository.findByToUserIdOrFromUserIdOrderByTimestampDesc(userId, userId);
+        return saved;
     }
 
     @Transactional
@@ -109,7 +74,7 @@ public class TaskService {
         }
 
         if (task.getStatus() != TaskStatus.SUBMITTED) {
-            throw new IllegalStateException("Отозвать можно только задание, находящееся на проверке");
+            throw new IllegalStateException("Отозвать можно только сданное задание");
         }
 
         task.setStatus(TaskStatus.IN_PROGRESS);
@@ -122,14 +87,67 @@ public class TaskService {
                 .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
 
         if (!task.getParentId().equals(parentId)) {
-            throw new IllegalStateException("Только родитель может отклонить задание");
-        }
-
-        if (task.getStatus() != TaskStatus.SUBMITTED) {
-            throw new IllegalStateException("Отклонить можно только сданное задание");
+            throw new IllegalStateException("Только назначивший родитель может отклонить задание");
         }
 
         task.setStatus(TaskStatus.REJECTED);
         return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task approveTask(Long taskId, Long parentId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
+
+        if (!task.getParentId().equals(parentId)) {
+            throw new IllegalStateException("Только родитель может подтвердить выполнение");
+        }
+
+        if (task.getStatus() == TaskStatus.APPROVED) {
+            throw new IllegalStateException("Задание уже было оплачено ранее");
+        }
+
+        task.setStatus(TaskStatus.APPROVED);
+        task.setCompletedAt(LocalDateTime.now());
+
+        // Начисление средств
+        Account childAccount = accountRepository.findById(task.getChildId())
+                .orElse(new Account(task.getChildId(), BigDecimal.ZERO));
+        childAccount.setBalance(childAccount.getBalance().add(task.getReward()));
+        accountRepository.save(childAccount);
+
+        // Журнал банковских транзакций
+        transactionRepository.save(Transaction.builder()
+                .fromUserId(task.getParentId())
+                .toUserId(task.getChildId())
+                .amount(task.getReward())
+                .description("Награда за квест: " + task.getTitle())
+                .paymentType("TASK_REWARD")
+                .build());
+
+        return taskRepository.save(task);
+    }
+
+    // Удаление квеста родителем
+    @Transactional
+    public void deleteTask(Long taskId, Long parentId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
+
+        if (!task.getParentId().equals(parentId)) {
+            throw new IllegalStateException("Только создавший родитель может удалить задание");
+        }
+
+        taskRepository.delete(task);
+    }
+
+    public BigDecimal getBalance(Long userId) {
+        return accountRepository.findById(userId)
+                .map(Account::getBalance)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    public List<Transaction> getHistory(Long userId) {
+        return transactionRepository.findByToUserIdOrFromUserIdOrderByTimestampDesc(userId, userId);
     }
 }

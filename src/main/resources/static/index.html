@@ -3,189 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ВТБ Семья | Family Hub</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>ВТБ Семья | Семейный банкинг</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .vtb-gradient { background: linear-gradient(135deg, #0a2540 0%, #0046b8 50%, #002882 100%); }
-        .vtb-card { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); }
-        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 50, 150, 0.12); }
+        .vtb-gradient { background: linear-gradient(135deg, #0d284a 0%, #0046b8 50%, #0a2550 100%); }
+        .vtb-card { background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.12); }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-16">
 
-<!-- Шапка профиля -->
-<header class="vtb-gradient p-5 rounded-b-3xl shadow-xl relative overflow-hidden">
+<!-- Шапка ВТБ Онлайн -->
+<header class="vtb-gradient p-5 rounded-b-3xl shadow-xl">
     <div class="flex justify-between items-center mb-4">
         <div class="flex items-center space-x-2">
             <span class="text-xl font-extrabold tracking-wider text-blue-400">ВТБ</span>
-            <span class="text-xs bg-blue-600/40 text-blue-200 border border-blue-400/30 px-2 py-0.5 rounded-full font-medium">Family Hub</span>
+            <span class="text-xs bg-blue-500/30 text-blue-200 border border-blue-400/30 px-2.5 py-0.5 rounded-full font-semibold">Семейный Банкинг</span>
         </div>
-        <button onclick="toggleRole()" id="roleBadge" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition flex items-center gap-1.5">
-            <span>👨 Режим: Родитель</span>
+        <!-- Кнопка переключения роли для демо -->
+        <button onclick="toggleRole()" id="roleBtn" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition">
+            👨 Профиль: Родитель
         </button>
     </div>
 
-    <!-- Баланс карты -->
+    <!-- Карта ребенка -->
     <div class="vtb-card rounded-2xl p-4 text-white">
-        <div class="text-xs text-blue-200 uppercase tracking-wider mb-1 flex justify-between">
-            <span>Детская карта ВТБ Junior</span>
-            <span class="text-emerald-400 font-bold">● Активна</span>
+        <div class="flex justify-between items-center text-xs text-blue-200 mb-1">
+            <span>Карта ВТБ Junior •••• 4821</span>
+            <span class="text-emerald-400 font-semibold flex items-center gap-1">● Активна</span>
         </div>
-        <div class="text-3xl font-extrabold tracking-tight mb-3" id="balanceDisplay">Загрузка...</div>
+        <div class="text-3xl font-extrabold tracking-tight mb-3" id="balanceDisplay">... ₽</div>
 
         <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-            <button onclick="openSbpModal()" class="bg-blue-600 hover:bg-blue-500 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+            <button onclick="openSbpModal()" class="bg-blue-600 hover:bg-blue-500 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
                 <span>⚡ СБП Пополнение</span>
             </button>
-            <button onclick="openHistoryModal()" class="bg-white/10 hover:bg-white/20 py-2 rounded-xl text-xs font-bold transition">
+            <button onclick="openHistoryModal()" class="bg-white/10 hover:bg-white/20 py-2 rounded-xl text-xs font-semibold transition">
                 История выплат
             </button>
         </div>
     </div>
 </header>
 
-<main class="p-4 space-y-5 max-w-md mx-auto">
+<main class="p-4 space-y-4 max-w-md mx-auto">
 
-    <!-- Ежедневные бонусы (как Морковск в Озон) -->
-    <section class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 card-shadow">
-        <div class="flex justify-between items-center mb-3">
-            <h2 class="text-sm font-bold flex items-center gap-1.5">
-                <span>🎁</span> Ежедневный стрик финграмотности
-            </h2>
-            <span class="text-xs text-blue-400 font-semibold">День 3</span>
-        </div>
-        <div class="grid grid-cols-5 gap-2 text-center text-xs">
-            <div class="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2">
-                <div class="text-[10px] text-emerald-300">Д 1</div>
-                <div class="font-bold text-white mt-0.5">+10₽</div>
-                <div class="text-emerald-400 text-[10px]">✓</div>
-            </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2">
-                <div class="text-[10px] text-emerald-300">Д 2</div>
-                <div class="font-bold text-white mt-0.5">+20₽</div>
-                <div class="text-emerald-400 text-[10px]">✓</div>
-            </div>
-            <div class="bg-blue-600/30 border-2 border-blue-400 rounded-xl p-2 scale-105 shadow">
-                <div class="text-[10px] text-blue-200">Д 3</div>
-                <div class="font-bold text-white mt-0.5">+50₽</div>
-                <button onclick="claimDailyReward()" id="claimBtn" class="mt-1 w-full bg-blue-500 hover:bg-blue-400 text-[9px] py-0.5 rounded font-bold">Взять</button>
-            </div>
-            <div class="bg-slate-700/40 rounded-xl p-2 opacity-60">
-                <div class="text-[10px]">Д 4</div>
-                <div class="font-bold mt-0.5">+75₽</div>
-            </div>
-            <div class="bg-slate-700/40 rounded-xl p-2 opacity-60">
-                <div class="text-[10px]">Д 5</div>
-                <div class="font-bold mt-0.5">+150₽</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Квесты от ВТБ (Банковские челленджи) -->
-    <section class="space-y-2">
-        <div class="flex justify-between items-center px-1">
-            <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-300">
-                <span>🏛</span> Квесты финансовой культуры от ВТБ
-            </h2>
-        </div>
-        <div class="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/30 rounded-2xl p-3 flex justify-between items-center">
+    <!-- Семейная копилка (Общая цель) -->
+    <section class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 shadow-lg">
+        <div class="flex justify-between items-start mb-2">
             <div>
-                <div class="text-xs font-bold text-white">Тест: Распознай телефонного мошенника</div>
-                <div class="text-[11px] text-blue-300 mt-0.5">+150 ₽ бонусом на счет ВТБ</div>
+                <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Семейная цель</div>
+                <h2 class="text-sm font-bold text-white mt-0.5">🏖 Поездка на море всей семьей</h2>
             </div>
-            <button onclick="completeVtbQuest(this, 150)" class="bg-blue-600 hover:bg-blue-500 text-xs font-bold px-3 py-1.5 rounded-xl transition">
-                Пройти
-            </button>
+            <span class="text-xs font-bold text-blue-400">25%</span>
+        </div>
+
+        <!-- Прогресс-бар -->
+        <div class="w-full bg-slate-700 rounded-full h-2.5 my-2.5 overflow-hidden">
+            <div class="bg-blue-500 h-2.5 rounded-full transition-all duration-500" style="width: 25%"></div>
+        </div>
+
+        <div class="flex justify-between text-xs text-slate-400">
+            <span>Собрано: <b class="text-white">15 000 ₽</b></span>
+            <span>Цель: <b class="text-white">60 000 ₽</b></span>
         </div>
     </section>
 
-    <!-- Семейные квесты -->
+    <!-- Задания семьи -->
     <section class="space-y-3">
         <div class="flex justify-between items-center px-1">
-            <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-300">
-                <span>🎯</span> Задания семьи
+            <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-200">
+                <span>📋</span> Задания и квесты
             </h2>
-            <button onclick="openCreateTaskModal()" id="btnNewTask" class="text-xs text-blue-400 hover:text-blue-300 font-semibold">
-                + Назначить квест
+            <button onclick="openCreateTaskModal()" id="btnNewTask" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-xl transition">
+                + Назначить
             </button>
         </div>
 
+        <!-- Контейнер карточек -->
         <div id="tasksContainer" class="space-y-2.5">
-            <!-- Карточки заданий загружаются динамически через JS -->
             <div class="text-center py-6 text-xs text-slate-500">Загрузка заданий...</div>
         </div>
     </section>
 
 </main>
 
-<!-- Модальное окно СБП (QR-код) -->
-<div id="sbpModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 w-full max-w-xs text-center space-y-4">
-        <h3 class="font-extrabold text-lg text-white">Оплата через СБП</h3>
-        <p class="text-xs text-slate-400">Отсканируйте камерой телефона или приложением любого банка</p>
-
-        <div class="bg-white p-3 rounded-2xl inline-block mx-auto shadow-inner">
-            <!-- Генерация живого QR кода под симуляцию СБП -->
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://qr.nspk.ru/AD1000623VTB99201" alt="QR СБП" class="w-44 h-44">
+<!-- Модалка истории транзакций -->
+<div id="historyModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 w-full max-w-sm space-y-4">
+        <div class="flex justify-between items-center">
+            <h3 class="font-bold text-sm text-white">История начислений</h3>
+            <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
         </div>
-
-        <div class="text-xs bg-slate-700/60 p-2.5 rounded-xl font-mono text-slate-300">
-            Получатель: Ребенок (ВТБ Junior)<br>
-            Назначение: Пополнение счета
+        <div id="historyList" class="space-y-2 max-h-64 overflow-y-auto pr-1 text-xs">
+            <div class="text-center text-slate-500 py-4">История пуста</div>
         </div>
-
-        <button onclick="closeSbpModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-2.5 rounded-xl text-xs font-bold transition">
-            Закрыть
-        </button>
+        <button onclick="closeHistoryModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-xs font-bold transition">Закрыть</button>
     </div>
 </div>
 
-<!-- Модальное окно создания задания -->
+<!-- Модалка СБП (QR-код) -->
+<div id="sbpModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 w-full max-w-xs text-center space-y-3">
+        <h3 class="font-bold text-base text-white">Пополнение через СБП</h3>
+        <p class="text-xs text-slate-400">Отсканируйте код в приложении банка для перевода ребенку</p>
+        <div class="bg-white p-3 rounded-2xl inline-block mx-auto">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://qr.nspk.ru/AD1000623VTB" alt="QR СБП" class="w-40 h-40">
+        </div>
+        <button onclick="closeSbpModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-2.5 rounded-xl text-xs font-bold transition">Закрыть</button>
+    </div>
+</div>
+
+<!-- Модалка создания задачи -->
 <div id="createTaskModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 w-full max-w-xs space-y-4">
-        <h3 class="font-bold text-base text-white">Новое задание для ребенка</h3>
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 w-full max-w-xs space-y-4">
+        <h3 class="font-bold text-sm text-white">Новое задание</h3>
         <div class="space-y-3 text-xs">
             <div>
-                <label class="block text-slate-400 mb-1">Название квеста</label>
-                <input id="taskTitleInput" type="text" placeholder="например: Сдать проект по физике" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                <label class="block text-slate-400 mb-1">Что нужно сделать?</label>
+                <input id="taskTitleInput" type="text" placeholder="например: Убраться в комнате" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
             </div>
             <div>
-                <label class="block text-slate-400 mb-1">Вознаграждение (₽)</label>
-                <input id="taskRewardInput" type="number" placeholder="например: 300" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                <label class="block text-slate-400 mb-1">Награда (₽)</label>
+                <input id="taskRewardInput" type="number" placeholder="250" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
             </div>
         </div>
-        <div class="flex gap-2 pt-2">
-            <button onclick="closeCreateTaskModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-xl text-xs font-bold transition">Отмена</button>
-            <button onclick="submitNewTask()" class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2.5 rounded-xl text-xs font-bold transition">Создать</button>
+        <div class="flex gap-2 pt-1">
+            <button onclick="closeCreateTaskModal()" class="w-1/2 bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-xs font-semibold transition">Отмена</button>
+            <button onclick="submitNewTask()" class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl text-xs font-bold transition">Назначить</button>
         </div>
     </div>
 </div>
 
 <script>
-    let currentRole = 'PARENT'; // 'PARENT' или 'CHILD'
+    let currentRole = 'PARENT';
     const PARENT_ID = 1;
     const CHILD_ID = 2;
 
-    // Инициализация Telegram WebApp при открытии внутри мессенджера
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-    }
-
     function toggleRole() {
         currentRole = (currentRole === 'PARENT') ? 'CHILD' : 'PARENT';
-        document.getElementById('roleBadge').innerHTML = currentRole === 'PARENT'
-            ? '<span>👨 Режим: Родитель</span>'
-            : '<span>🧒 Режим: Ребенок</span>';
+        document.getElementById('roleBtn').innerText = currentRole === 'PARENT' ? '👨 Профиль: Родитель' : '🧒 Профиль: Ребенок';
         document.getElementById('btnNewTask').style.display = currentRole === 'PARENT' ? 'block' : 'none';
         loadData();
     }
 
     async function loadData() {
-        // 1. Загрузка баланса ребенка
+        // 1. Баланс
         try {
             const res = await fetch(`/api/v1/tasks/balance/${CHILD_ID}`);
             const balance = await res.json();
@@ -194,62 +157,76 @@
             document.getElementById('balanceDisplay').innerText = '0 ₽';
         }
 
-        // 2. Загрузка списка заданий
+        // 2. Список задач
         try {
             const res = await fetch(`/api/v1/tasks/child/${CHILD_ID}`);
             const tasks = await res.json();
             renderTasks(tasks);
         } catch (e) {
-            document.getElementById('tasksContainer').innerHTML = '<div class="text-xs text-red-400 text-center">Ошибка загрузки заданий</div>';
+            document.getElementById('tasksContainer').innerHTML = '<div class="text-xs text-red-400 text-center py-4">Ошибка загрузки задач</div>';
         }
     }
 
     function renderTasks(tasks) {
         const container = document.getElementById('tasksContainer');
         if (!tasks || tasks.length === 0) {
-            container.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">Активных заданий пока нет</div>';
+            container.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">Заданий пока нет</div>';
             return;
         }
 
         container.innerHTML = tasks.map(t => {
-            let statusText = '';
+            let statusBadge = '';
             let actionBtn = '';
 
             if (t.status === 'CREATED' || t.status === 'IN_PROGRESS') {
-                statusText = '<span class="text-amber-400">🏃 В работе</span>';
+                statusBadge = '<span class="text-amber-400">🏃 В работе</span>';
                 if (currentRole === 'CHILD') {
-                    actionBtn = `<button onclick="submitTask(${t.id})" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-xl text-xs font-bold transition">✅ Я выполнил</button>`;
+                    actionBtn = `<button onclick="submitTask(${t.id})" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-xl text-xs font-semibold transition">Сдать</button>`;
                 }
             } else if (t.status === 'SUBMITTED') {
-                statusText = '<span class="text-blue-400">⏳ Ждет проверки</span>';
+                statusBadge = '<span class="text-blue-400">⏳ Ждет проверки</span>';
                 if (currentRole === 'PARENT') {
                     actionBtn = `
               <div class="flex gap-1.5">
-                <button onclick="approveTask(${t.id})" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 rounded-xl text-xs font-bold transition">💰 Оплатить</button>
-                <button onclick="rejectTask(${t.id})" class="bg-rose-600 hover:bg-rose-500 px-2.5 py-1.5 rounded-xl text-xs font-bold transition">❌</button>
+                <button onclick="approveTask(${t.id})" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 rounded-xl text-xs font-bold transition">Выплатить</button>
+                <button onclick="rejectTask(${t.id})" class="bg-rose-600 hover:bg-rose-500 px-2 py-1.5 rounded-xl text-xs transition">✕</button>
               </div>`;
                 } else {
-                    actionBtn = `<button onclick="cancelTask(${t.id})" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-xl text-xs font-bold transition">↩️ Отозвать</button>`;
+                    actionBtn = `<button onclick="cancelTask(${t.id})" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-xl text-xs transition">Отозвать</button>`;
                 }
             } else if (t.status === 'APPROVED') {
-                statusText = '<span class="text-emerald-400">✓ Оплачено</span>';
+                statusBadge = '<span class="text-emerald-400">✓ Выплачено</span>';
             } else if (t.status === 'REJECTED') {
-                statusText = '<span class="text-rose-400">✕ Отклонено</span>';
+                statusBadge = '<span class="text-rose-400">✕ На доработке</span>';
                 if (currentRole === 'CHILD') {
-                    actionBtn = `<button onclick="submitTask(${t.id})" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-xl text-xs font-bold transition">Пересдать</button>`;
+                    actionBtn = `<button onclick="submitTask(${t.id})" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-xl text-xs font-semibold transition">Пересдать</button>`;
                 }
             }
 
+            // Кнопка удаления для родителя
+            const deleteBtn = (currentRole === 'PARENT')
+                ? `<button onclick="deleteTask(${t.id})" class="text-slate-500 hover:text-rose-400 p-1 text-xs transition" title="Удалить">🗑</button>`
+                : '';
+
             return `
-          <div class="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-3.5 flex justify-between items-center card-shadow">
+          <div class="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-3.5 flex justify-between items-center shadow">
             <div>
-              <div class="font-bold text-xs text-white">${t.title}</div>
-              <div class="text-[11px] text-slate-400 mt-0.5">Награда: <span class="font-bold text-emerald-400">${t.reward} ₽</span> • ${statusText}</div>
+              <div class="font-semibold text-xs text-white flex items-center gap-2">
+                <span>${t.title}</span>
+                ${deleteBtn}
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Награда: <span class="font-bold text-emerald-400">${t.reward} ₽</span> • ${statusBadge}</div>
             </div>
             <div>${actionBtn}</div>
           </div>
         `;
         }).join('');
+    }
+
+    async function deleteTask(id) {
+        if (!confirm('Удалить это задание?')) return;
+        await fetch(`/api/v1/tasks/${id}?parentId=${PARENT_ID}`, { method: 'DELETE' });
+        loadData();
     }
 
     async function submitTask(id) {
@@ -277,6 +254,32 @@
     function openSbpModal() { document.getElementById('sbpModal').classList.remove('hidden'); }
     function closeSbpModal() { document.getElementById('sbpModal').classList.add('hidden'); }
 
+    async function openHistoryModal() {
+        document.getElementById('historyModal').classList.remove('hidden');
+        try {
+            const res = await fetch(`/api/v1/tasks/history/${CHILD_ID}`);
+            const history = await res.json();
+            const list = document.getElementById('historyList');
+            if (!history || history.length === 0) {
+                list.innerHTML = '<div class="text-center text-slate-500 py-4">Выплат пока не было</div>';
+                return;
+            }
+            list.innerHTML = history.map(item => `
+          <div class="bg-slate-900 p-2.5 rounded-xl flex justify-between items-center">
+            <div>
+              <div class="font-medium text-white">${item.description}</div>
+              <div class="text-[10px] text-slate-500">${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            </div>
+            <div class="font-bold text-emerald-400">+${item.amount} ₽</div>
+          </div>
+        `).join('');
+        } catch (e) {
+            document.getElementById('historyList').innerHTML = '<div class="text-center text-slate-500 py-4">Выплат пока не было</div>';
+        }
+    }
+
+    function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
+
     async function submitNewTask() {
         const title = document.getElementById('taskTitleInput').value.trim();
         const reward = parseFloat(document.getElementById('taskRewardInput').value);
@@ -285,7 +288,7 @@
         await fetch('/api/v1/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, description: "Семейный квест", reward, parentId: PARENT_ID, childId: CHILD_ID })
+            body: JSON.stringify({ title, description: "Семейное задание", reward, parentId: PARENT_ID, childId: CHILD_ID })
         });
 
         document.getElementById('taskTitleInput').value = '';
@@ -294,31 +297,9 @@
         loadData();
     }
 
-    async function completeVtbQuest(btn, amount) {
-        btn.disabled = true;
-        btn.innerText = 'Начислено!';
-        btn.className = 'bg-emerald-600 text-xs font-bold px-3 py-1.5 rounded-xl';
-        // Создаем и мгновенно начисляем награду за квест от банка
-        const res = await fetch('/api/v1/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: "Урок финбезопасности ВТБ", description: "Бонус от банка", reward: amount, parentId: PARENT_ID, childId: CHILD_ID })
-        });
-        const task = await res.json();
-        await fetch(`/api/v1/tasks/${task.id}/approve?parentId=${PARENT_ID}`, { method: 'PATCH' });
-        loadData();
-    }
-
-    function claimDailyReward() {
-        const btn = document.getElementById('claimBtn');
-        btn.disabled = true;
-        btn.innerText = 'Забрано';
-        btn.className = 'mt-1 w-full bg-emerald-600 text-[9px] py-0.5 rounded font-bold';
-        completeVtbQuest(btn, 50);
-    }
-
-    // Первый запуск
     loadData();
+
+    setInterval(loadData, 3000);
 </script>
 </body>
 </html>

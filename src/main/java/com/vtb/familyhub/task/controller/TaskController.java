@@ -84,4 +84,11 @@ public class TaskController {
     public ResponseEntity<List<com.vtb.familyhub.task.entity.Transaction>> getHistory(@PathVariable Long userId) {
         return ResponseEntity.ok(taskService.getHistory(userId));
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Родитель удаляет задание")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id, @RequestParam Long parentId) {
+        taskService.deleteTask(id, parentId);
+        return ResponseEntity.noContent().build();
+    }
 }

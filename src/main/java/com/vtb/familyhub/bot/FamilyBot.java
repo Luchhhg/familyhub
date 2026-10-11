@@ -2,9 +2,11 @@ package com.vtb.familyhub.bot;
 
 import com.vtb.familyhub.task.entity.Task;
 import com.vtb.familyhub.task.entity.TaskStatus;
+import com.vtb.familyhub.task.event.TaskSubmittedEvent;
 import com.vtb.familyhub.task.service.TaskService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -26,15 +28,14 @@ public class FamilyBot extends TelegramLongPollingBot {
     private final String botToken;
     private final TaskService taskService;
 
-    private enum State {
-        IDLE,
-        WAITING_TITLE,
-        WAITING_REWARD
-    }
+    private enum State { IDLE, WAITING_TITLE, WAITING_REWARD }
 
     private final Map<Long, String> userRoles = new ConcurrentHashMap<>();
     private final Map<Long, State> userStates = new ConcurrentHashMap<>();
     private final Map<Long, String> draftTaskTitles = new ConcurrentHashMap<>();
+
+    // Храним chatId последнего активного родителя для отправки PUSH-уведомлений
+    private volatile Long activeParentChatId = null;
 
     private static final Long PARENT_ID = 1L;
     private static final Long CHILD_ID = 2L;
@@ -49,13 +50,33 @@ public class FamilyBot extends TelegramLongPollingBot {
     }
 
     @Override
-    public String getBotUsername() {
-        return botUsername;
-    }
+    public String getBotUsername() { return botUsername; }
 
     @Override
-    public String getBotToken() {
-        return botToken;
+    public String getBotToken() { return botToken; }
+
+    /**
+     * СЛУШАТЕЛЬ СОБЫТИЙ: Срабатывает, когда ребенок сдает задание (на сайте или в боте)
+     */
+    @EventListener
+    public void onTaskSubmitted(TaskSubmittedEvent event) {
+        if (activeParentChatId == null) {
+            log.info("Родитель еще не запускал бота, пуш пропущен");
+            return;
+        }
+
+        Task task = event.getTask();
+        String text = "🔔 *Новое выполненное задание!*\n\n" +
+                "Ребенок сдал квест: *«" + task.getTitle() + "»*\n" +
+                "Награда к выплате: *" + task.getReward() + " ₽*\n\n" +
+                "Проверьте работу и подтвердите перевод:";
+
+        List<List<InlineKeyboardButton>> buttons = List.of(List.of(
+                btn("💰 Оплатить " + task.getReward() + " ₽", "APPROVE_" + task.getId()),
+                btn("❌ Отклонить", "REJECT_" + task.getId())
+        ));
+
+        sendSimpleMessageWithKeyboard(activeParentChatId, text, buttons);
     }
 
     @Override
@@ -75,6 +96,7 @@ public class FamilyBot extends TelegramLongPollingBot {
         if ("/start".equals(text) || "меню".equalsIgnoreCase(text)) {
             userStates.put(chatId, State.IDLE);
             userRoles.putIfAbsent(chatId, "PARENT");
+            activeParentChatId = chatId; // Запоминаем родителя для пушей
             sendMainMenu(chatId);
             return;
         }
@@ -89,13 +111,14 @@ public class FamilyBot extends TelegramLongPollingBot {
                 BigDecimal reward = new BigDecimal(cleanNumber);
                 String title = draftTaskTitles.remove(chatId);
 
-                taskService.createTask(title, "Семейное задание", reward, PARENT_ID, CHILD_ID);
+                taskService.createTask(title, "Семейный квест", reward, PARENT_ID, CHILD_ID);
                 userStates.put(chatId, State.IDLE);
 
-                sendSimpleMessage(chatId, "🎉 Квест *«" + title + "»* на сумму *" + reward + " ₽* успешно назначен!");
+                sendSimpleMessage(chatId, "🎉 Квест *«" + title + "»* на сумму *" + reward +
+                        " ₽* успешно назначен!");
                 sendMainMenu(chatId);
             } catch (Exception e) {
-                sendSimpleMessage(chatId, "⚠️ Введите корректное число (только цифры, например: `300`):");
+                sendSimpleMessage(chatId, "⚠️ Введите корректное число (например: `300`):");
             }
         }
     }
@@ -113,71 +136,59 @@ public class FamilyBot extends TelegramLongPollingBot {
         else if ("SWITCH_ROLE".equals(data)) {
             String newRole = currentRole.equals("PARENT") ? "CHILD" : "PARENT";
             userRoles.put(chatId, newRole);
+            if (newRole.equals("PARENT")) activeParentChatId = chatId;
             renderMenu(chatId, messageId);
         }
         else if ("START_CREATE_TASK".equals(data)) {
             userStates.put(chatId, State.WAITING_TITLE);
-            sendSimpleMessage(chatId, "✍️ Напишите *название задания* (например: _Выучить стих_, _Убраться в комнате_):");
+            sendSimpleMessage(chatId, "✍️ Напишите *название задания* (например: _Помыть посуду_):");
         }
         else if ("LIST_TASKS".equals(data)) {
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
         else if (data.startsWith("SUBMIT_")) {
             Long taskId = Long.parseLong(data.replace("SUBMIT_", ""));
-            try {
-                taskService.submitTask(taskId, CHILD_ID);
-            } catch (Exception ignored) {}
+            try { taskService.submitTask(taskId, CHILD_ID); } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
         else if (data.startsWith("CANCEL_")) {
             Long taskId = Long.parseLong(data.replace("CANCEL_", ""));
-            try {
-                taskService.cancelSubmission(taskId, CHILD_ID);
-            } catch (Exception ignored) {}
+            try { taskService.cancelSubmission(taskId, CHILD_ID); } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
         else if (data.startsWith("REJECT_")) {
             Long taskId = Long.parseLong(data.replace("REJECT_", ""));
-            try {
-                taskService.rejectTask(taskId, PARENT_ID);
-            } catch (Exception ignored) {}
+            try { taskService.rejectTask(taskId, PARENT_ID); } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
         else if (data.startsWith("APPROVE_")) {
             Long taskId = Long.parseLong(data.replace("APPROVE_", ""));
             try {
                 taskService.approveTask(taskId, PARENT_ID);
+                sendSimpleMessage(chatId, "💸 Награда переведена на счет ребенка!");
             } catch (Exception ignored) {}
+            renderUnifiedTaskList(chatId, messageId, currentRole);
+        }
+        else if (data.startsWith("DELETE_")) {
+            Long taskId = Long.parseLong(data.replace("DELETE_", ""));
+            try { taskService.deleteTask(taskId, PARENT_ID); } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
         else if ("CHECK_BALANCE".equals(data)) {
             BigDecimal balance = taskService.getBalance(CHILD_ID);
-            String balanceText = "💳 *Детский счет ВТБ:*\n\n" +
-                    "💰 Доступно: *" + balance + " ₽*\n\n" +
-                    "_Деньги начисляются сразу после проверки заданий родителем._";
-
-            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-            rows.add(List.of(btn("🔙 Назад в меню", "MENU")));
-            editMessage(chatId, messageId, balanceText, rows);
+            String balanceText = "💳 *Детский счет ВТБ Junior:*\n\n💰 Баланс: *" + balance + " ₽*";
+            editMessage(chatId, messageId, balanceText, List.of(List.of(btn("🔙 В меню", "MENU"))));
         }
     }
 
     private void sendMainMenu(long chatId) {
         String role = userRoles.getOrDefault(chatId, "PARENT");
-        String text = getMenuText(role);
-        List<List<InlineKeyboardButton>> keyboard = getMenuButtons(role);
-
         SendMessage msg = new SendMessage();
         msg.setChatId(chatId);
         msg.setParseMode("Markdown");
-        msg.setText(text);
-        msg.setReplyMarkup(new InlineKeyboardMarkup(keyboard));
-
-        try {
-            execute(msg);
-        } catch (TelegramApiException e) {
-            log.error("Ошибка отправки меню", e);
-        }
+        msg.setText(getMenuText(role));
+        msg.setReplyMarkup(new InlineKeyboardMarkup(getMenuButtons(role)));
+        try { execute(msg); } catch (TelegramApiException e) { log.error("Ошибка меню", e); }
     }
 
     private void renderMenu(long chatId, int messageId) {
@@ -186,38 +197,20 @@ public class FamilyBot extends TelegramLongPollingBot {
     }
 
     private String getMenuText(String role) {
-        String roleBadge = role.equals("PARENT") ? "👨‍👩‍👧 Режим: РОДИТЕЛЬ" : "🧒 Режим: РЕБЕНОК";
-        return "🏛 *ВТБ Семья (Family Hub)*\n" +
-                "Управление совместными финансами и мотивацией детей.\n\n" +
-                "Текущий профиль: *" + roleBadge + "*";
+        String roleBadge = role.equals("PARENT") ? "👨‍👩‍👧 Профиль: РОДИТЕЛЬ" : "🧒 Профиль: РЕБЕНОК";
+        return "🏛 *ВТБ Семья (Family Hub)*\n\nТекущий режим: *" + roleBadge + "*";
     }
 
     private List<List<InlineKeyboardButton>> getMenuButtons(String role) {
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-
-        // Кнопка открытия Mini-App интерфейса
-        InlineKeyboardButton webAppBtn = new InlineKeyboardButton();
-        webAppBtn.setText("📱 Открыть ВТБ Family App");
-
-        // Для локального теста можно указать URL вашего туннеля ngrok/Cloudflare
-        // org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo
-        org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo webAppInfo =
-                new org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo("http://localhost:8080");
-        webAppBtn.setWebApp(webAppInfo);
-
-        rows.add(List.of(webAppBtn));
-
         if ("PARENT".equals(role)) {
             rows.add(List.of(btn("➕ Назначить квест", "START_CREATE_TASK")));
-            rows.add(List.of(btn("📋 Список заданий семьи", "LIST_TASKS")));
+            rows.add(List.of(btn("📋 Задания семьи", "LIST_TASKS")));
         } else {
-            rows.add(List.of(btn("🎯 Мои квесты и награды", "LIST_TASKS")));
-            rows.add(List.of(btn("💳 Мой баланс в ВТБ", "CHECK_BALANCE")));
+            rows.add(List.of(btn("🎯 Мои квесты", "LIST_TASKS")));
+            rows.add(List.of(btn("💳 Мой баланс", "CHECK_BALANCE")));
         }
-
-        String switchText = role.equals("PARENT") ? "🔄 Переключить на Ребенка" : "🔄 Переключить на Родителя";
-        rows.add(List.of(btn(switchText, "SWITCH_ROLE")));
-
+        rows.add(List.of(btn(role.equals("PARENT") ? "🔄 Переключить на Ребенка" : "🔄 Переключить на Родителя", "SWITCH_ROLE")));
         return rows;
     }
 
@@ -229,50 +222,47 @@ public class FamilyBot extends TelegramLongPollingBot {
         StringBuilder sb = new StringBuilder();
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
 
-        if ("PARENT".equals(role)) {
-            sb.append("📋 *Список заданий семьи:*\n\n");
-        } else {
-            sb.append("🎯 *Твои задания и цели:*\n\n");
-        }
+        sb.append(role.equals("PARENT") ? "📋 *Задания семьи:*\n\n" : "🎯 *Твои задания:*\n\n");
 
         if (tasks.isEmpty()) {
-            sb.append("_Активных заданий пока нет. Создайте первое задание!_\n");
+            sb.append("_Список пуст._\n");
         } else {
             int index = 1;
             for (Task t : tasks) {
-                String statusBadge;
-                switch (t.getStatus()) {
-                    case CREATED -> statusBadge = "🏃 В процессе";
-                    case IN_PROGRESS -> statusBadge = "🏃 В работе";
-                    case SUBMITTED -> statusBadge = "⏳ Ждет проверки родителя";
-                    case REJECTED -> statusBadge = "❌ Отклонено (нужно переделать)";
-                    case APPROVED -> statusBadge = "✅ Оплачено (+ " + t.getReward() + " ₽)";
-                    default -> statusBadge = t.getStatus().name();
-                }
+                String badge = switch (t.getStatus()) {
+                    case CREATED, IN_PROGRESS -> "🏃 В работе";
+                    case SUBMITTED -> "⏳ Ждет проверки";
+                    case REJECTED -> "❌ Отклонено";
+                    case APPROVED -> "✅ Оплачено";
+                };
 
                 sb.append(index++).append(". *").append(t.getTitle()).append("*\n")
-                        .append("   💵 Награда: *").append(t.getReward()).append(" ₽*\n")
-                        .append("   Статус: ").append(statusBadge).append("\n\n");
+                        .append("   💵 ").append(t.getReward()).append(" ₽ • ").append(badge).append("\n\n");
 
-                // Кнопки действий
                 if ("CHILD".equals(role)) {
-                    if (t.getStatus() == TaskStatus.CREATED || t.getStatus() == TaskStatus.IN_PROGRESS || t.getStatus() == TaskStatus.REJECTED) {
-                        buttons.add(List.of(btn("✅ Сдать: " + t.getTitle(), "SUBMIT_" + t.getId())));
+                    if (t.getStatus() == TaskStatus.CREATED ||
+                            t.getStatus() == TaskStatus.IN_PROGRESS ||
+                            t.getStatus() == TaskStatus.REJECTED) {
+                        buttons.add(List.of(btn("✅ Сдать: " + t.getTitle(),
+                                "SUBMIT_" + t.getId())));
                     } else if (t.getStatus() == TaskStatus.SUBMITTED) {
-                        // Откат для ребенка, если отправил по ошибке
-                        buttons.add(List.of(btn("↩️ Отозвать: " + t.getTitle(), "CANCEL_" + t.getId())));
+                        buttons.add(List.of(btn("↩️ Отозвать: " + t.getTitle(),
+                                "CANCEL_" + t.getId())));
                     }
-                } else if ("PARENT".equals(role) && t.getStatus() == TaskStatus.SUBMITTED) {
-                    // Родитель может либо одобрить, либо отклонить спам/халтуру
-                    buttons.add(List.of(
-                            btn("💰 Оплатить (" + t.getReward() + " ₽)", "APPROVE_" + t.getId()),
-                            btn("❌ Отклонить", "REJECT_" + t.getId())
-                    ));
+                } else { // PARENT
+                    if (t.getStatus() == TaskStatus.SUBMITTED) {
+                        buttons.add(List.of(
+                                btn("💰 Оплатить", "APPROVE_" + t.getId()),
+                                btn("❌ Отклонить", "REJECT_" + t.getId())
+                        ));
+                    }
+                    // Родитель может удалить невыполненную или завершенную таску
+                    buttons.add(List.of(btn("🗑 Удалить: " + t.getTitle(), "DELETE_" + t.getId())));
                 }
             }
         }
 
-        buttons.add(List.of(btn("🔙 Назад в меню", "MENU")));
+        buttons.add(List.of(btn("🔙 В меню", "MENU")));
         editMessage(chatId, messageId, sb.toString(), buttons);
     }
 
@@ -290,10 +280,7 @@ public class FamilyBot extends TelegramLongPollingBot {
         edit.setParseMode("Markdown");
         edit.setText(text);
         edit.setReplyMarkup(new InlineKeyboardMarkup(buttons));
-
-        try {
-            execute(edit);
-        } catch (TelegramApiException e) {
+        try { execute(edit); } catch (TelegramApiException e) {
             sendSimpleMessageWithKeyboard(chatId, text, buttons);
         }
     }
@@ -303,11 +290,7 @@ public class FamilyBot extends TelegramLongPollingBot {
         msg.setChatId(chatId);
         msg.setParseMode("Markdown");
         msg.setText(text);
-        try {
-            execute(msg);
-        } catch (TelegramApiException e) {
-            log.error("Ошибка отправки текста", e);
-        }
+        try { execute(msg); } catch (TelegramApiException e) { log.error("Ошибка отправки текста", e); }
     }
 
     private void sendSimpleMessageWithKeyboard(long chatId, String text, List<List<InlineKeyboardButton>> buttons) {
@@ -316,10 +299,6 @@ public class FamilyBot extends TelegramLongPollingBot {
         msg.setParseMode("Markdown");
         msg.setText(text);
         msg.setReplyMarkup(new InlineKeyboardMarkup(buttons));
-        try {
-            execute(msg);
-        } catch (TelegramApiException e) {
-            log.error("Ошибка отправки", e);
-        }
+        try { execute(msg); } catch (TelegramApiException e) { log.error("Ошибка отправки", e); }
     }
 }
