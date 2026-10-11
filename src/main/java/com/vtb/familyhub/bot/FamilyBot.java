@@ -195,6 +195,18 @@ public class FamilyBot extends TelegramLongPollingBot {
     private List<List<InlineKeyboardButton>> getMenuButtons(String role) {
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
 
+        // Кнопка открытия Mini-App интерфейса
+        InlineKeyboardButton webAppBtn = new InlineKeyboardButton();
+        webAppBtn.setText("📱 Открыть ВТБ Family App");
+
+        // Для локального теста можно указать URL вашего туннеля ngrok/Cloudflare
+        // org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo
+        org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo webAppInfo =
+                new org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo("http://localhost:8080");
+        webAppBtn.setWebApp(webAppInfo);
+
+        rows.add(List.of(webAppBtn));
+
         if ("PARENT".equals(role)) {
             rows.add(List.of(btn("➕ Назначить квест", "START_CREATE_TASK")));
             rows.add(List.of(btn("📋 Список заданий семьи", "LIST_TASKS")));

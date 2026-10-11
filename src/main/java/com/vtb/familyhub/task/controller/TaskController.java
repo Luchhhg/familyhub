@@ -78,4 +78,10 @@ public class TaskController {
     public ResponseEntity<BigDecimal> getBalance(@PathVariable Long userId) {
         return ResponseEntity.ok(taskService.getBalance(userId));
     }
+
+    @GetMapping("/history/{userId}")
+    @Operation(summary = "Получить историю финансовых транзакций")
+    public ResponseEntity<List<com.vtb.familyhub.task.entity.Transaction>> getHistory(@PathVariable Long userId) {
+        return ResponseEntity.ok(taskService.getHistory(userId));
+    }
 }

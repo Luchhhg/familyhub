@@ -3,8 +3,10 @@ package com.vtb.familyhub.task.service;
 import com.vtb.familyhub.task.entity.Account;
 import com.vtb.familyhub.task.entity.Task;
 import com.vtb.familyhub.task.entity.TaskStatus;
+import com.vtb.familyhub.task.entity.Transaction;
 import com.vtb.familyhub.task.repository.AccountRepository;
 import com.vtb.familyhub.task.repository.TaskRepository;
+import com.vtb.familyhub.task.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
     public Task createTask(String title, String description, BigDecimal reward, Long parentId, Long childId) {
         Task task = Task.builder()
@@ -75,6 +78,14 @@ public class TaskService {
         childAccount.setBalance(childAccount.getBalance().add(task.getReward()));
         accountRepository.save(childAccount);
 
+        transactionRepository.save(Transaction.builder()
+                .fromUserId(task.getParentId())
+                .toUserId(task.getChildId())
+                .amount(task.getReward())
+                .description("Награда за квест: " + task.getTitle())
+                .paymentType("TASK_REWARD")
+                .build());
+
         return taskRepository.save(task);
     }
 
@@ -82,6 +93,10 @@ public class TaskService {
         return accountRepository.findById(userId)
                 .map(Account::getBalance)
                 .orElse(BigDecimal.ZERO);
+    }
+
+    public List<Transaction> getHistory(Long userId) {
+        return transactionRepository.findByToUserIdOrFromUserIdOrderByTimestampDesc(userId, userId);
     }
 
     @Transactional
