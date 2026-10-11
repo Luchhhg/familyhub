@@ -103,8 +103,15 @@ public class TaskService {
             throw new IllegalStateException("Только родитель может подтвердить выполнение");
         }
 
-        if (task.getStatus() == TaskStatus.APPROVED) {
-            throw new IllegalStateException("Задание уже было оплачено ранее");
+        // Разрешаем оплату ТОЛЬКО если задание прямо сейчас находится на проверке
+        if (task.getStatus() != TaskStatus.SUBMITTED) {
+            String current = switch (task.getStatus()) {
+                case REJECTED -> "отклонено родителем";
+                case IN_PROGRESS, CREATED -> "отозвано в работу";
+                case APPROVED -> "уже было оплачено ранее";
+                default -> "не ожидает проверки";
+            };
+            throw new IllegalStateException("Нельзя оплатить: задание " + current);
         }
 
         task.setStatus(TaskStatus.APPROVED);

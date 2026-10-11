@@ -156,18 +156,29 @@ public class FamilyBot extends TelegramLongPollingBot {
             try { taskService.cancelSubmission(taskId, CHILD_ID); } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
-        else if (data.startsWith("REJECT_")) {
-            Long taskId = Long.parseLong(data.replace("REJECT_", ""));
-            try { taskService.rejectTask(taskId, PARENT_ID); } catch (Exception ignored) {}
-            renderUnifiedTaskList(chatId, messageId, currentRole);
-        }
         else if (data.startsWith("APPROVE_")) {
             Long taskId = Long.parseLong(data.replace("APPROVE_", ""));
             try {
                 taskService.approveTask(taskId, PARENT_ID);
                 sendSimpleMessage(chatId, "💸 Награда переведена на счет ребенка!");
-            } catch (Exception ignored) {}
-            renderUnifiedTaskList(chatId, messageId, currentRole);
+                renderUnifiedTaskList(chatId, messageId, currentRole);
+            } catch (Exception e) {
+                // Если статус на сайте уже изменился, пишем родителю понятную причину
+                sendSimpleMessage(chatId, "⚠️ " + e.getMessage());
+                // Обновляем список, чтобы убрать неактуальные кнопки
+                renderUnifiedTaskList(chatId, messageId, currentRole);
+            }
+        }
+        else if (data.startsWith("REJECT_")) {
+            Long taskId = Long.parseLong(data.replace("REJECT_", ""));
+            try {
+                taskService.rejectTask(taskId, PARENT_ID);
+                sendSimpleMessage(chatId, "❌ Задание отправлено на доработку.");
+                renderUnifiedTaskList(chatId, messageId, currentRole);
+            } catch (Exception e) {
+                sendSimpleMessage(chatId, "⚠️ " + e.getMessage());
+                renderUnifiedTaskList(chatId, messageId, currentRole);
+            }
         }
         else if (data.startsWith("DELETE_")) {
             Long taskId = Long.parseLong(data.replace("DELETE_", ""));
