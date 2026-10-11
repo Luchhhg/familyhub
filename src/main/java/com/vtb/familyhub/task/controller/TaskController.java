@@ -52,6 +52,18 @@ public class TaskController {
         return ResponseEntity.ok(taskService.approveTask(id, parentId));
     }
 
+    @PatchMapping("/{id}/cancel-submit")
+    @Operation(summary = "Ребенок отзывает ошибочно отправленное задание")
+    public ResponseEntity<Task> cancelSubmit(@PathVariable Long id, @RequestParam Long childId) {
+        return ResponseEntity.ok(taskService.cancelSubmission(id, childId));
+    }
+
+    @PatchMapping("/{id}/reject")
+    @Operation(summary = "Родитель отклоняет задание и возвращает на доработку")
+    public ResponseEntity<Task> reject(@PathVariable Long id, @RequestParam Long parentId) {
+        return ResponseEntity.ok(taskService.rejectTask(id, parentId));
+    }
+
     @Data
     public static class CreateTaskRequest {
         private String title;

@@ -83,4 +83,38 @@ public class TaskService {
                 .map(Account::getBalance)
                 .orElse(BigDecimal.ZERO);
     }
+
+    @Transactional
+    public Task cancelSubmission(Long taskId, Long childId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
+
+        if (!task.getChildId().equals(childId)) {
+            throw new IllegalStateException("Задание принадлежит другому ребенку");
+        }
+
+        if (task.getStatus() != TaskStatus.SUBMITTED) {
+            throw new IllegalStateException("Отозвать можно только задание, находящееся на проверке");
+        }
+
+        task.setStatus(TaskStatus.IN_PROGRESS);
+        return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task rejectTask(Long taskId, Long parentId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Задача не найдена"));
+
+        if (!task.getParentId().equals(parentId)) {
+            throw new IllegalStateException("Только родитель может отклонить задание");
+        }
+
+        if (task.getStatus() != TaskStatus.SUBMITTED) {
+            throw new IllegalStateException("Отклонить можно только сданное задание");
+        }
+
+        task.setStatus(TaskStatus.REJECTED);
+        return taskRepository.save(task);
+    }
 }

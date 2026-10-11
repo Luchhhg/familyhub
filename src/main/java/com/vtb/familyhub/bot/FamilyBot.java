@@ -26,7 +26,6 @@ public class FamilyBot extends TelegramLongPollingBot {
     private final String botToken;
     private final TaskService taskService;
 
-    // Состояния для пошагового создания задачи
     private enum State {
         IDLE,
         WAITING_TITLE,
@@ -80,11 +79,10 @@ public class FamilyBot extends TelegramLongPollingBot {
             return;
         }
 
-        // Пошаговый сценарий создания квеста
         if (currentState == State.WAITING_TITLE) {
             draftTaskTitles.put(chatId, text);
             userStates.put(chatId, State.WAITING_REWARD);
-            sendSimpleMessage(chatId, "💵 Отлично! Теперь введите *сумму вознаграждения в рублях* (например: `200` или `500`):");
+            sendSimpleMessage(chatId, "💵 Введите *сумму вознаграждения в рублях* (например: `250`):");
         } else if (currentState == State.WAITING_REWARD) {
             try {
                 String cleanNumber = text.replaceAll("[^0-9.]", "");
@@ -94,10 +92,10 @@ public class FamilyBot extends TelegramLongPollingBot {
                 taskService.createTask(title, "Семейное задание", reward, PARENT_ID, CHILD_ID);
                 userStates.put(chatId, State.IDLE);
 
-                sendSimpleMessage(chatId, "🎉 Квест *«" + title + "»* с наградой *" + reward + " ₽* успешно назначен ребенку!");
+                sendSimpleMessage(chatId, "🎉 Квест *«" + title + "»* на сумму *" + reward + " ₽* успешно назначен!");
                 sendMainMenu(chatId);
             } catch (Exception e) {
-                sendSimpleMessage(chatId, "⚠️ Пожалуйста, введите корректное число (только цифры, например: `250`):");
+                sendSimpleMessage(chatId, "⚠️ Введите корректное число (только цифры, например: `300`):");
             }
         }
     }
@@ -119,7 +117,7 @@ public class FamilyBot extends TelegramLongPollingBot {
         }
         else if ("START_CREATE_TASK".equals(data)) {
             userStates.put(chatId, State.WAITING_TITLE);
-            sendSimpleMessage(chatId, "✍️ Напишите *название задания* (например: _Помыть посуду_, _Убраться в комнате_, _Сдать проект_):");
+            sendSimpleMessage(chatId, "✍️ Напишите *название задания* (например: _Выучить стих_, _Убраться в комнате_):");
         }
         else if ("LIST_TASKS".equals(data)) {
             renderUnifiedTaskList(chatId, messageId, currentRole);
@@ -128,6 +126,20 @@ public class FamilyBot extends TelegramLongPollingBot {
             Long taskId = Long.parseLong(data.replace("SUBMIT_", ""));
             try {
                 taskService.submitTask(taskId, CHILD_ID);
+            } catch (Exception ignored) {}
+            renderUnifiedTaskList(chatId, messageId, currentRole);
+        }
+        else if (data.startsWith("CANCEL_")) {
+            Long taskId = Long.parseLong(data.replace("CANCEL_", ""));
+            try {
+                taskService.cancelSubmission(taskId, CHILD_ID);
+            } catch (Exception ignored) {}
+            renderUnifiedTaskList(chatId, messageId, currentRole);
+        }
+        else if (data.startsWith("REJECT_")) {
+            Long taskId = Long.parseLong(data.replace("REJECT_", ""));
+            try {
+                taskService.rejectTask(taskId, PARENT_ID);
             } catch (Exception ignored) {}
             renderUnifiedTaskList(chatId, messageId, currentRole);
         }
@@ -142,16 +154,14 @@ public class FamilyBot extends TelegramLongPollingBot {
             BigDecimal balance = taskService.getBalance(CHILD_ID);
             String balanceText = "💳 *Детский счет ВТБ:*\n\n" +
                     "💰 Доступно: *" + balance + " ₽*\n\n" +
-                    "_Средства зачисляются сразу после одобрения родителем._";
+                    "_Деньги начисляются сразу после проверки заданий родителем._";
 
             List<List<InlineKeyboardButton>> rows = new ArrayList<>();
             rows.add(List.of(btn("🔙 Назад в меню", "MENU")));
-
             editMessage(chatId, messageId, balanceText, rows);
         }
     }
 
-    // Главное меню
     private void sendMainMenu(long chatId) {
         String role = userRoles.getOrDefault(chatId, "PARENT");
         String text = getMenuText(role);
@@ -199,7 +209,6 @@ public class FamilyBot extends TelegramLongPollingBot {
         return rows;
     }
 
-    // Единый аккуратный список всех заданий в одном сообщении
     private void renderUnifiedTaskList(long chatId, int messageId, String role) {
         List<Task> tasks = role.equals("PARENT")
                 ? taskService.getTasksForParent(PARENT_ID)
@@ -224,6 +233,7 @@ public class FamilyBot extends TelegramLongPollingBot {
                     case CREATED -> statusBadge = "🏃 В процессе";
                     case IN_PROGRESS -> statusBadge = "🏃 В работе";
                     case SUBMITTED -> statusBadge = "⏳ Ждет проверки родителя";
+                    case REJECTED -> statusBadge = "❌ Отклонено (нужно переделать)";
                     case APPROVED -> statusBadge = "✅ Оплачено (+ " + t.getReward() + " ₽)";
                     default -> statusBadge = t.getStatus().name();
                 }
@@ -232,17 +242,25 @@ public class FamilyBot extends TelegramLongPollingBot {
                         .append("   💵 Награда: *").append(t.getReward()).append(" ₽*\n")
                         .append("   Статус: ").append(statusBadge).append("\n\n");
 
-                // Добавляем кнопки действий под этим сообщением
-                if ("CHILD".equals(role) && (t.getStatus() == TaskStatus.CREATED || t.getStatus() == TaskStatus.IN_PROGRESS)) {
-                    buttons.add(List.of(btn("✅ Сдать: " + t.getTitle(), "SUBMIT_" + t.getId())));
+                // Кнопки действий
+                if ("CHILD".equals(role)) {
+                    if (t.getStatus() == TaskStatus.CREATED || t.getStatus() == TaskStatus.IN_PROGRESS || t.getStatus() == TaskStatus.REJECTED) {
+                        buttons.add(List.of(btn("✅ Сдать: " + t.getTitle(), "SUBMIT_" + t.getId())));
+                    } else if (t.getStatus() == TaskStatus.SUBMITTED) {
+                        // Откат для ребенка, если отправил по ошибке
+                        buttons.add(List.of(btn("↩️ Отозвать: " + t.getTitle(), "CANCEL_" + t.getId())));
+                    }
                 } else if ("PARENT".equals(role) && t.getStatus() == TaskStatus.SUBMITTED) {
-                    buttons.add(List.of(btn("💰 Оплатить: " + t.getTitle() + " (" + t.getReward() + " ₽)", "APPROVE_" + t.getId())));
+                    // Родитель может либо одобрить, либо отклонить спам/халтуру
+                    buttons.add(List.of(
+                            btn("💰 Оплатить (" + t.getReward() + " ₽)", "APPROVE_" + t.getId()),
+                            btn("❌ Отклонить", "REJECT_" + t.getId())
+                    ));
                 }
             }
         }
 
         buttons.add(List.of(btn("🔙 Назад в меню", "MENU")));
-
         editMessage(chatId, messageId, sb.toString(), buttons);
     }
 
@@ -264,7 +282,6 @@ public class FamilyBot extends TelegramLongPollingBot {
         try {
             execute(edit);
         } catch (TelegramApiException e) {
-            log.warn("Не удалось обновить сообщение, отправляем новое: {}", e.getMessage());
             sendSimpleMessageWithKeyboard(chatId, text, buttons);
         }
     }
